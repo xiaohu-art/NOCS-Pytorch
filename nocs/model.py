@@ -1152,6 +1152,32 @@ def build_rpn_targets(image_shape, anchors, gt_boxes, config):
 
     return rpn_match, rpn_bbox
 
+def replace_bn_with_gn(model, config):
+    def _replace_bn(module):
+        for name, child in module.named_children():
+            if isinstance(child, nn.BatchNorm2d):
+
+                num_channels = child.num_features
+                gn = nn.GroupNorm(
+                    num_groups=config.GROUP_NORM_GROUPS if hasattr(config, 'GROUP_NORM_GROUPS') else 32,
+                    num_channels=num_channels,
+                    eps=child.eps,
+                    affine=child.affine
+                )
+                
+                if child.affine:
+                    gn.weight.data.copy_(child.weight.data)
+                    gn.bias.data.copy_(child.bias.data)
+                
+                gn.training = child.training
+                
+                setattr(module, name, gn)
+            else:
+                _replace_bn(child)
+
+    _replace_bn(model)
+    return model
+
 ############################################################
 #  MaskRCNN Class
 ############################################################
@@ -1218,13 +1244,7 @@ class MaskRCNN(nn.Module):
         self.nocs_head_y= Nocs_head_bins_wt_unshared(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES, config.NUM_BINS, 'coord_y')
         self.nocs_head_z= Nocs_head_bins_wt_unshared(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES, config.NUM_BINS, 'coord_z')
 
-        # Fix batch norm layers
-        def set_bn_fix(m):
-            classname = m.__class__.__name__
-            if classname.find('BatchNorm') != -1:
-                for p in m.parameters(): p.requires_grad = False
-
-        self.apply(set_bn_fix)
+        self = replace_bn_with_gn(self, config)
 
     def initialize_weights(self):
         """Initialize model weights.
@@ -1237,9 +1257,10 @@ class MaskRCNN(nn.Module):
                 # nn.init.kaiming_normal_(m.weight,nonlinearity='relu')
                 if m.bias is not None:
                     m.bias.data.zero_()
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+            elif isinstance(m, nn.GroupNorm):
+                if m.affine:
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
                 m.weight.data.normal_(0, 0.01)
                 # nn.init.xavier_uniform_(m.weight)
