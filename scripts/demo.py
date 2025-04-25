@@ -25,7 +25,7 @@ MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 
 COCO_MODEL_PATH = os.path.join(ROOT_DIR, "models/mask_rcnn_coco.pth")
 
-TRAINED_PATH = 'models/nocs_train_2.pth'
+TRAINED_PATH = 'models/adam_train_0070.pth'
 
 # Directory of images to run detection on
 IMAGE_DIR = os.path.join(ROOT_DIR, "images")

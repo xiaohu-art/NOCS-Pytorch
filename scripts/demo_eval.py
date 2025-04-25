@@ -32,7 +32,7 @@ MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 
 COCO_MODEL_PATH = os.path.join(ROOT_DIR, "models/mask_rcnn_coco.pth")
 
-TRAINED_PATH = 'models/nocs_train_1.pth'
+TRAINED_PATH = 'models/adam_train_0070.pth'
 
 
 # Path to specific image

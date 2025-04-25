@@ -65,9 +65,14 @@ uv run scripts/train.py
 
 Run the demo script:
 ```bash
+# for detection
 python scripts/demo_eval.py \
     --data real_test \      # or val
-    --detect \              # set for detection, not set for evaluation
+    --detect 
+
+# for evaluation
+python scripts/demo_eval.py \
+    --data real_test \      # or val
 ```
 
 

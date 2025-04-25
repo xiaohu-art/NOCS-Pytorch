@@ -1620,10 +1620,10 @@ class MaskRCNN(nn.Module):
         # Skip gamma and beta weights of batch normalization layers.
         trainables_wo_bn = [param for name, param in self.named_parameters() if param.requires_grad and not 'bn' in name]
         trainables_only_bn = [param for name, param in self.named_parameters() if param.requires_grad and 'bn' in name]
-        optimizer = optim.SGD([
+        optimizer = optim.Adam([
             {'params': trainables_wo_bn, 'weight_decay': self.config.WEIGHT_DECAY},
             {'params': trainables_only_bn}
-        ], lr=learning_rate, momentum=self.config.LEARNING_MOMENTUM)
+        ], lr=learning_rate)
 
         for epoch in range(self.epoch+1, epochs+1):
             log("Epoch {}/{}.".format(epoch,epochs))
@@ -1645,7 +1645,7 @@ class MaskRCNN(nn.Module):
             # Statistics
             self.loss_history.append([loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask,loss_x_coord, loss_y_coord, loss_z_coord])
             self.val_loss_history.append([val_loss, val_loss_rpn_class, val_loss_rpn_bbox, val_loss_mrcnn_class, val_loss_mrcnn_bbox, val_loss_mrcnn_mask,val_loss_x_coord, val_loss_y_coord, val_loss_z_coord])
-            visualize.plot_loss2(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
+            visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
             if epoch % 5 == 0 or epoch == epochs:

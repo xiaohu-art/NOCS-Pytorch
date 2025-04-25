@@ -56,7 +56,6 @@ class Nocs_train_config(Config):
 
     WEIGHT_DECAY = 0.0001
     LEARNING_RATE = 0.001
-    LEARNING_MOMENTUM = 0.9
 
     COORD_LOSS_SCALE = 1
     
