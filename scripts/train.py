@@ -33,7 +33,7 @@ class Nocs_train_config(Config):
     # config file for nocs training, derives from base config  
     NAME="NOCS_train"
     GPU_COUNT = 1
-    IMAGES_PER_GPU = 1
+    IMAGES_PER_GPU = 4
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 6  # background + 6 object categories
@@ -54,8 +54,8 @@ class Nocs_train_config(Config):
     # use small validation steps since the epoch is small
     VALIDATION_STEPS = 50
 
-    WEIGHT_DECAY = 0.0001
-    LEARNING_RATE = 0.001
+    WEIGHT_DECAY = 1e-3
+    LEARNING_RATE = 1e-3
 
     COORD_LOSS_SCALE = 1
     
@@ -252,15 +252,15 @@ if __name__ == '__main__':
     print("Training network heads")
     model.train_model([synthtrain,realtrain], valset,
                 learning_rate=config.LEARNING_RATE,
-                epochs=10,
+                epochs=100,
                 layers='heads')
 
     # Training - Stage 2
     # Finetune layers from ResNet stage 4 and up
     print("Training Resnet layer 4+")
     model.train_model([synthtrain,realtrain], valset,
-                learning_rate=config.LEARNING_RATE/10,
-                epochs=5,
+                learning_rate=config.LEARNING_RATE/4,
+                epochs=100,
                 layers='4+')
 
 
@@ -269,6 +269,6 @@ if __name__ == '__main__':
     # Finetune layers from ResNet stage 3 and up
     print("Training Resnet layer 3+")
     model.train_model([synthtrain,realtrain], valset,
-                learning_rate=config.LEARNING_RATE/100,
-                epochs=70,
+                learning_rate=config.LEARNING_RATE/10,
+                epochs=400,
                 layers='all')

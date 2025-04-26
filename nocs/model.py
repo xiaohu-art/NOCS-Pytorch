@@ -1405,14 +1405,6 @@ class MaskRCNN(nn.Module):
         elif mode == 'training':
             self.train()
 
-            # Set batchnorm always in eval mode during training
-            def set_bn_eval(m):
-                classname = m.__class__.__name__
-                if classname.find('BatchNorm') != -1:
-                    m.eval()
-
-            self.apply(set_bn_eval)
-
         # Feature extraction
         [p2_out, p3_out, p4_out, p5_out, p6_out] = self.fpn(molded_images)
 
@@ -1641,10 +1633,15 @@ class MaskRCNN(nn.Module):
         # Skip gamma and beta weights of batch normalization layers.
         trainables_wo_bn = [param for name, param in self.named_parameters() if param.requires_grad and not 'bn' in name]
         trainables_only_bn = [param for name, param in self.named_parameters() if param.requires_grad and 'bn' in name]
-        optimizer = optim.Adam([
+        optimizer = optim.AdamW([
             {'params': trainables_wo_bn, 'weight_decay': self.config.WEIGHT_DECAY},
             {'params': trainables_only_bn}
         ], lr=learning_rate)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                                        optimizer, 
+                                        T_max=epochs * self.config.STEPS_PER_EPOCH, 
+                                        eta_min=learning_rate/100
+                                    )
 
         for epoch in range(self.epoch+1, epochs+1):
             log("Epoch {}/{}.".format(epoch,epochs))
@@ -1654,11 +1651,11 @@ class MaskRCNN(nn.Module):
 
                 if len(train_dataset) == 2:
 
-                    loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask, loss_x_coord, loss_y_coord, loss_z_coord = self.train_epoch([synth_generator,real_generator], optimizer, self.config.STEPS_PER_EPOCH)
+                    loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask, loss_x_coord, loss_y_coord, loss_z_coord = self.train_epoch([synth_generator,real_generator], optimizer, scheduler, self.config.STEPS_PER_EPOCH)
 
             else:
 
-                loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask, loss_x_coord, loss_y_coord, loss_z_coord = self.train_epoch(train_generator, optimizer, self.config.STEPS_PER_EPOCH)
+                loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask, loss_x_coord, loss_y_coord, loss_z_coord = self.train_epoch(train_generator, optimizer, scheduler, self.config.STEPS_PER_EPOCH)
 
             # Validation
             val_loss, val_loss_rpn_class, val_loss_rpn_bbox, val_loss_mrcnn_class, val_loss_mrcnn_bbox, val_loss_mrcnn_mask, val_loss_x_coord, val_loss_y_coord, val_loss_z_coord = self.valid_epoch(val_generator, self.config.VALIDATION_STEPS)
@@ -1669,13 +1666,13 @@ class MaskRCNN(nn.Module):
             visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
-            if epoch % 5 == 0 or epoch == epochs:
+            if epoch % 50 == 0 or epoch == epochs:
                 torch.save(self.state_dict(), self.checkpoint_path.format(epoch))
 
         self.epoch = epochs
 
 
-    def train_epoch(self, datagenerator, optimizer, steps):
+    def train_epoch(self, datagenerator, optimizer, scheduler, steps):
         batch_count = 0
         loss_sum = 0
         loss_rpn_class_sum = 0
@@ -1719,15 +1716,15 @@ class MaskRCNN(nn.Module):
 
             batch_count += 1
 
-            images = inputs[0]
-            image_metas = inputs[1]
-            rpn_match = inputs[2]
-            rpn_bbox = inputs[3]
-            gt_class_ids = inputs[4]
-            gt_boxes = inputs[5]
-            gt_masks = inputs[6]
-            gt_coords = inputs[7]
-            gt_domain_label = inputs[8]
+            images = inputs[0]          # (B,C,H,W)
+            image_metas = inputs[1]     # (B,15)
+            rpn_match = inputs[2]       # (B,A,1),  A = 102300
+            rpn_bbox = inputs[3]        # (B,RPN_TRAIN_ANCHORS_PER_IMG,4), RPN_TRAIN_ANCHORS_PER_IMG = 256
+            gt_class_ids = inputs[4]    # (B, NUM_INSTANCES)
+            gt_boxes = inputs[5]        # (B, NUM_INSTANCES, 4 + 1)
+            gt_masks = inputs[6]        # (B, NUM_INSTANCES, H, W)
+            gt_coords = inputs[7]       # (B, H, W, NUM_INSTANCES, 3)
+            gt_domain_label = inputs[8] # (B)
 
             if rpn_bbox.sum() == 0:
                 batch_count -= 1
@@ -1766,6 +1763,7 @@ class MaskRCNN(nn.Module):
             torch.nn.utils.clip_grad_norm_(self.parameters(), 5.0)
             if (batch_count % self.config.BATCH_SIZE) == 0:
                 optimizer.step()
+                scheduler.step()
                 optimizer.zero_grad()
                 batch_count = 0
 

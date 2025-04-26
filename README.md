@@ -77,6 +77,6 @@ python scripts/demo_eval.py \
 
 
 ## Modifications to be tested:
-- increase `IMAGE_PER_GPU`
-- replace `SGD` with `Adam`
-- replace `batch normalization` with `group normalization` or `instance normalization`
+- increase `IMAGE_PER_GPU` to 4
+- replace `SGD` with `AdamW`
+- replace `batch normalization` with `group normalization`
