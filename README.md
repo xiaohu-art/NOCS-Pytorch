@@ -62,6 +62,12 @@ python scripts/train.py
 # or
 uv run scripts/train.py
 ```
+For training with ViT backbone, run the train_vit script:
+```bash
+python scripts/train_vit.py
+# or
+uv run scripts/train_vit.py
+```
 
 Run the demo script:
 ```bash
@@ -74,9 +80,3 @@ python scripts/demo_eval.py \
 python scripts/demo_eval.py \
     --data real_test \      # or val
 ```
-
-
-## Modifications to be tested:
-- increase `IMAGE_PER_GPU` to 4
-- replace `SGD` with `AdamW`
-- replace `batch normalization` with `group normalization`

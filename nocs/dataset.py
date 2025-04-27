@@ -552,8 +552,11 @@ class NOCSData(utils.Dataset):
             mask_im = cv2.imread(mask_path)[:, :, 2]
             coord_map = cv2.imread(coord_path)[:, :, :3]
             coord_map = coord_map[:, :, (2, 1, 0)]
-
-            masks, coords, class_ids, scales = self.process_data(mask_im, coord_map, inst_dict, meta_path)
+            try:
+                masks, coords, class_ids, scales = self.process_data(mask_im, coord_map, inst_dict, meta_path)
+            except Exception as e:
+                print(f"Error processing data for image {image_id}: {e} from source {info}")
+                raise e
 
         else:
             assert False
@@ -590,7 +593,11 @@ class NOCSData(utils.Dataset):
                                                                      masks=mask_im, 
                                                                      coords=coord_map, 
                                                                      rotate_degree=rotate_degree)
-            masks, coords, class_ids, scales = self.process_data(mask_im, coord_map, inst_dict, meta_path)
+            try:
+                masks, coords, class_ids, scales = self.process_data(mask_im, coord_map, inst_dict, meta_path)
+            except Exception as e:
+                print(f"Error processing data for image {image_id}: {e} from source {info}")
+                raise e
         elif info["source"]=="coco":
             domain_label = 1 ## no coordinate map loss
 
