@@ -418,6 +418,7 @@ def plot_loss(loss, val_loss, save=True, log_dir=None):
     plt.plot(val_loss[:, 0], label='valid')
     plt.xlabel('epoch')
     plt.ylabel('loss')
+    plt.ylim(0, 10)
     plt.legend()
     if save:
         save_path = os.path.join(log_dir, "loss.png")

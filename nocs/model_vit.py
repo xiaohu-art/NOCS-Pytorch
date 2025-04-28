@@ -118,18 +118,6 @@ def crop_and_resize(image,boxes,box_indices,crop_size):
 #  FPN Graph
 ############################################################
 
-class TopDownLayer(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(TopDownLayer, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
-        self.padding2 = utils.SamePad2d(kernel_size=3, stride=1)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1)
-
-    def forward(self, x, y):
-        y = F.interpolate(y, scale_factor=2)
-        x = self.conv1(x)
-        return self.conv2(self.padding2(x+y))
-
 class FPN(nn.Module):
     def __init__(self, backbone, in_channels, out_channels=256, add_p6=True):
         super().__init__()
@@ -1450,6 +1438,7 @@ class MaskRCNN(nn.Module):
 
         # Pre-defined layer regular expressions
         layer_regex = {
+            "heads": r"(fpn.proj.*)|(rpn.*)|(classifier.*)|(mask.*)|(nocs_head_x.*)|(nocs_head_y.*)|(nocs_head_z.*)",
             "all": ".*",
         }
         if layers in layer_regex.keys():
@@ -1520,7 +1509,7 @@ class MaskRCNN(nn.Module):
             visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
-            if epoch % 50 == 0 or epoch == epochs:
+            if epoch % 25 == 0 or epoch == epochs:
                 torch.save(self.state_dict(), self.checkpoint_path.format(epoch))
 
         self.epoch = epochs

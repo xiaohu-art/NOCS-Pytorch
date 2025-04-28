@@ -143,14 +143,10 @@ if __name__ == '__main__':
     model.to(device)
     
     # Load and prep synthetic train data
-    synthtrain = NOCSData(synset_names,'train')
-    synthtrain.load_camera_scenes(camera_dir)
-    synthtrain.prepare(class_map)
-
-    # Load and prep real train data
-    realtrain = NOCSData(synset_names,'train')
-    realtrain.load_real_scenes(real_dir)
-    realtrain.prepare(class_map)
+    dataset_train = NOCSData(synset_names,'train')
+    dataset_train.load_camera_scenes(camera_dir)
+    dataset_train.load_real_scenes(real_dir)
+    dataset_train.prepare(class_map)
 
     # Load and prep synthetic validation data
     valset = NOCSData(synset_names,'val')
@@ -160,14 +156,14 @@ if __name__ == '__main__':
 
     # Training - Stage 1
     print("Training network heads")
-    model.train_model([synthtrain,realtrain], valset,
+    model.train_model(dataset_train, valset,
                 learning_rate=config.LEARNING_RATE,
                 epochs=100,
                 layers='heads')
     
     # Training - Stage 2
     print("Training network all layers")
-    model.train_model([synthtrain,realtrain], valset,
+    model.train_model(dataset_train, valset,
                 learning_rate=config.LEARNING_RATE,
                 epochs=200,
                 layers='all')

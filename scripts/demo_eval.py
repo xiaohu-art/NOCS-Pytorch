@@ -30,9 +30,7 @@ ROOT_DIR = os.getcwd()
 # Directory to save logs and trained model
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 
-COCO_MODEL_PATH = os.path.join(ROOT_DIR, "models/mask_rcnn_coco.pth")
-
-TRAINED_PATH = 'models/one_stage_scheduler.pth'
+TRAINED_PATH = 'models/batch_size_4.pth'
 
 
 # Path to specific image

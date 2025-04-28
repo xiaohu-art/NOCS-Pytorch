@@ -270,5 +270,5 @@ if __name__ == '__main__':
     print("Training Resnet layer 3+")
     model.train_model([synthtrain,realtrain], valset,
                 learning_rate=config.LEARNING_RATE/10,
-                epochs=400,
+                epochs=200,
                 layers='all')
