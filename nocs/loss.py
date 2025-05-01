@@ -123,8 +123,11 @@ def compute_mrcnn_coord_bins_symmetry_loss(target_masks, target_coords, target_c
             # Tile y_pred to match the shape of y_true_stack
             y_pred_stack = y_pred.repeat(1, 1, 1, y_true_stack.size(3), 1, 1)
 
-            y_pred_logits=torch.log(y_pred_stack+1e-5).permute(0,5,1,2,3,4)
-            cross_loss = F.nll_loss(y_pred_logits, y_true_bins_stack,reduction='none')
+            # y_pred_logits=torch.log(y_pred_stack+1e-5).permute(0,5,1,2,3,4)
+            # cross_loss = F.nll_loss(y_pred_logits, y_true_bins_stack,reduction='none')
+
+            cross_loss = F.cross_entropy(y_pred_stack.permute(0,5,1,2,3,4),  # logits
+                                        y_true_bins_stack, reduction='none')
 
             mask = torch.index_select(target_masks, 0, positive_ix) ## shape: [num_pixels_in_mask, 6, 3]
             # mask = torch.index_select(target_masks, 0, positive_ix) ## shape: [num_pixels_in_mask, 6, 3]
@@ -137,14 +140,19 @@ def compute_mrcnn_coord_bins_symmetry_loss(target_masks, target_coords, target_c
             sum_loss_in_mask = cross_loss_in_mask.sum(dim=[1,2])
             total_sum_loss_in_mask = sum_loss_in_mask.sum(dim=-1)
 
-            arg_min_rotation = torch.argmin(total_sum_loss_in_mask,dim=-1).to(torch.int32)
+            # arg_min_rotation = torch.argmin(total_sum_loss_in_mask,dim=-1).to(torch.int32)
 
-            min_indices = torch.stack([torch.arange(arg_min_rotation.shape[0],device = arg_min_rotation.device), arg_min_rotation], dim=-1)
-            min_loss_in_mask = gather_nd_torch(sum_loss_in_mask, min_indices)
+            # min_indices = torch.stack([torch.arange(arg_min_rotation.shape[0],device = arg_min_rotation.device), arg_min_rotation], dim=-1)
+            # min_loss_in_mask = gather_nd_torch(sum_loss_in_mask, min_indices)
 
-            mean_loss_in_mask = min_loss_in_mask /  num_of_pixels.unsqueeze(1)
+            # mean_loss_in_mask = min_loss_in_mask /  num_of_pixels.unsqueeze(1)
 
-            sym_loss = mean_loss_in_mask.mean(0)
+            # sym_loss = mean_loss_in_mask.mean(0)
+            w = F.softmax(-total_sum_loss_in_mask, dim=-1)          # e^{ -loss }
+            softmin_loss = (w * sum_loss_in_mask).sum(-1)           # (N_roi,)
+
+            mean_loss_in_mask = softmin_loss / num_of_pixels
+            sym_loss = mean_loss_in_mask.mean(0) 
 
             return sym_loss
 

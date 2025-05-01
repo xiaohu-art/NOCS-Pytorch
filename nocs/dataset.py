@@ -447,12 +447,12 @@ class NOCSData(utils.Dataset):
         instance_ids = list(np.unique(cdata))
         instance_ids = sorted(instance_ids)
         # remove background
-        assert instance_ids[-1] == 255, f"instance_ids is {instance_ids}"
-        del instance_ids[-1]
-        # if instance_ids[-1] == 255:
-        #     del instance_ids[-1]
-        # else:
-        #     print(f"Warning: instance_ids[-1] is {instance_ids[-1]}")
+        # assert instance_ids[-1] == 255, f"instance_ids is {instance_ids}"
+        # del instance_ids[-1]
+        if instance_ids[-1] == 255:
+            del instance_ids[-1]
+        else:
+            print(f"Warning: instance_ids[-1] is {instance_ids[-1]}")
 
         cdata[cdata==255] = -1
         assert(np.unique(cdata).shape[0] < 20)

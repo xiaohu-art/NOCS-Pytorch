@@ -1041,13 +1041,12 @@ class ViTBackbone(nn.Module):
     def __init__(self, config):
         super().__init__()
         config.ViTBACKBONE = ['vit_base_patch16_384',
-                              'vit_large_patch16_384',
-                              'mae_vit_base_p16_224_vitdet',
-                              'vit_base_patch16_dinov2']
+                              'vit_base_patch16_siglip_384',]
         self.vit = timm.create_model(
-            model_name=config.ViTBACKBONE[0],
+            model_name=config.ViTBACKBONE[1],
             img_size=config.IMAGE_SHAPE[:2],
-            pretrained=True, 
+            pretrained=True,
+            # pretrained=False, 
             features_only=True
             )
         
@@ -1509,7 +1508,7 @@ class MaskRCNN(nn.Module):
             visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
-            if epoch % 25 == 0 or epoch == epochs:
+            if epoch % 5 == 0 or epoch == epochs:
                 torch.save(self.state_dict(), self.checkpoint_path.format(epoch))
 
         self.epoch = epochs
@@ -1655,10 +1654,7 @@ class MaskRCNN(nn.Module):
         loss_y_coord_sum = 0
         loss_z_coord_sum = 0
 
-        pbar = tqdm(datagenerator, total=steps, 
-                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}{postfix}',
-                    desc='Validation')
-        for inputs in pbar:
+        for inputs in datagenerator:
             images = inputs[0]
             image_metas = inputs[1]
             rpn_match = inputs[2]
@@ -1706,18 +1702,14 @@ class MaskRCNN(nn.Module):
                 
                 loss = rpn_class_loss + rpn_bbox_loss + mrcnn_class_loss + mrcnn_bbox_loss + mrcnn_mask_loss+coord_x_bin_loss+coord_y_bin_loss+coord_z_bin_loss 
 
-            # Update progress bar with current losses
-            pbar.set_postfix({
-                'loss': f'{loss.item():.4f}',
-                'rpn_cls': f'{rpn_class_loss.item():.4f}',
-                'rpn_bbox': f'{rpn_bbox_loss.item():.4f}',
-                'mrcnn_cls': f'{mrcnn_class_loss.item():.4f}',
-                'mrcnn_bbox': f'{mrcnn_bbox_loss.item():.4f}',
-                'mrcnn_mask': f'{mrcnn_mask_loss.item():.4f}',
-                'c_x': f'{coord_x_bin_loss.item():.4f}',
-                'c_y': f'{coord_y_bin_loss.item():.4f}',
-                'c_z': f'{coord_z_bin_loss.item():.4f}'
-            })
+            # Progress
+            printProgressBar(step + 1, steps, prefix="\t{}/{}".format(step + 1, steps),
+                             suffix="Complete - loss: {:.5f} - rpn_class_loss: {:.5f} - rpn_bbox_loss: {:.5f} - mrcnn_class_loss: {:.5f} - mrcnn_bbox_loss: {:.5f} - mrcnn_mask_loss: {:.5f} - coord_x_bin_loss: {:.5f} - coord_y_bin_loss: {:.5f} - coord_z_bin_loss: {:.5f}".format(
+                                 loss.item(), rpn_class_loss.item(), rpn_bbox_loss.item(),
+                                 mrcnn_class_loss.item(), mrcnn_bbox_loss.item(),
+                                 mrcnn_mask_loss.item(),coord_x_bin_loss.item(),coord_y_bin_loss.item(),coord_z_bin_loss.item()), length=10)
+                                #  mrcnn_class_loss.data.cpu()[0], mrcnn_bbox_loss.data.cpu()[0],
+                                #  mrcnn_mask_loss.data.cpu()[0]), length=10)
 
             # Statistics
             loss_sum += loss.item()/steps
@@ -1735,7 +1727,6 @@ class MaskRCNN(nn.Module):
                 break
             step += 1
 
-        pbar.close()
         return loss_sum, loss_rpn_class_sum, loss_rpn_bbox_sum, loss_mrcnn_class_sum, loss_mrcnn_bbox_sum, loss_mrcnn_mask_sum, loss_x_coord_sum, loss_y_coord_sum, loss_z_coord_sum
 
 

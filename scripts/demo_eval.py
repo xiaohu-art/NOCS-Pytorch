@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from nocs import coco
 from nocs import utils
-from nocs.model import MaskRCNN
+from nocs.model_vit import MaskRCNN
 from nocs.dataset import NOCSData
 
 def parse_args():
@@ -30,7 +30,7 @@ ROOT_DIR = os.getcwd()
 # Directory to save logs and trained model
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 
-TRAINED_PATH = 'models/batch_size_4.pth'
+TRAINED_PATH = 'models/vit_base_p16_siglip_384.pth'
 
 
 # Path to specific image
@@ -73,7 +73,7 @@ if config.GPU_COUNT==0:
     model.load_state_dict(torch.load(TRAINED_PATH,map_location=torch.device('cpu')))
     device = torch.device('cpu')
 else:
-    model.load_state_dict(torch.load(TRAINED_PATH))
+    model.load_state_dict(torch.load(TRAINED_PATH), strict=True)
     device = torch.device('cuda')
 
 

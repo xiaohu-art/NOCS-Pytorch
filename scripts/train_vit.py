@@ -33,14 +33,14 @@ class Nocs_train_config(Config):
     # config file for nocs training, derives from base config  
     NAME="NOCS_train"
     GPU_COUNT = 1
-    IMAGES_PER_GPU = 4
+    IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 6  # background + 6 object categories
     MEAN_PIXEL = np.array([[ 120.66209412, 114.70348358, 105.81269836]])
 
-    IMAGE_MIN_DIM = 480
-    IMAGE_MAX_DIM = 640
+    # IMAGE_MIN_DIM = 480
+    # IMAGE_MAX_DIM = 640
 
     RPN_ANCHOR_SCALES = (16, 32, 48, 64, 128)  # anchor side in pixels
 
@@ -55,7 +55,7 @@ class Nocs_train_config(Config):
     VALIDATION_STEPS = 50
 
     WEIGHT_DECAY = 1e-3
-    LEARNING_RATE = 1e-3
+    LEARNING_RATE = 1e-4
 
     COORD_LOSS_SCALE = 1
     
@@ -145,12 +145,8 @@ if __name__ == '__main__':
     # Load and prep synthetic train data
     synthtrain = NOCSData(synset_names,'train')
     synthtrain.load_camera_scenes(camera_dir)
+    synthtrain.load_real_scenes(real_dir)
     synthtrain.prepare(class_map)
-
-    # Load and prep real train data
-    realtrain = NOCSData(synset_names,'train')
-    realtrain.load_real_scenes(real_dir)
-    realtrain.prepare(class_map)
 
     # Load and prep synthetic validation data
     valset = NOCSData(synset_names,'val')
@@ -160,14 +156,14 @@ if __name__ == '__main__':
 
     # Training - Stage 1
     print("Training network heads")
-    model.train_model([synthtrain,realtrain], valset,
+    model.train_model(synthtrain, valset,
                 learning_rate=config.LEARNING_RATE,
                 epochs=100,
                 layers='heads')
     
     # Training - Stage 2
     print("Training network all layers")
-    model.train_model([synthtrain,realtrain], valset,
-                learning_rate=config.LEARNING_RATE,
+    model.train_model(synthtrain, valset,
+                learning_rate=config.LEARNING_RATE/4,
                 epochs=200,
                 layers='all')
