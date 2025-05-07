@@ -137,8 +137,8 @@ def compute_mrcnn_coord_bins_symmetry_loss(target_masks, target_coords, target_c
             num_of_pixels = mask.sum(dim=[1, 2]) + 0.00001 ## shape: [num_pos_rois]
 
             cross_loss_in_mask = cross_loss * reshape_mask
-            sum_loss_in_mask = cross_loss_in_mask.sum(dim=[1,2])
-            total_sum_loss_in_mask = sum_loss_in_mask.sum(dim=-1)
+            sum_loss_in_mask = cross_loss_in_mask.sum(dim=[1,2])    # [num_pos_rois, 6, 3]
+            total_sum_loss_in_mask = sum_loss_in_mask.sum(dim=-1)   # [num_pos_rois, 6]
 
             # arg_min_rotation = torch.argmin(total_sum_loss_in_mask,dim=-1).to(torch.int32)
 
@@ -149,9 +149,10 @@ def compute_mrcnn_coord_bins_symmetry_loss(target_masks, target_coords, target_c
 
             # sym_loss = mean_loss_in_mask.mean(0)
             w = F.softmax(-total_sum_loss_in_mask, dim=-1)          # e^{ -loss }
-            softmin_loss = (w * sum_loss_in_mask).sum(-1)           # (N_roi,)
+            w = w.unsqueeze(-1)
+            softmin_loss = (w * sum_loss_in_mask).sum(dim=1)           # (N_roi,)
 
-            mean_loss_in_mask = softmin_loss / num_of_pixels
+            mean_loss_in_mask = softmin_loss / num_of_pixels.unsqueeze(-1)
             sym_loss = mean_loss_in_mask.mean(0) 
 
             return sym_loss

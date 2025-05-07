@@ -30,7 +30,7 @@ ROOT_DIR = os.getcwd()
 # Directory to save logs and trained model
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 
-TRAINED_PATH = 'models/vit_base_p16_siglip_384.pth'
+TRAINED_PATH = 'models/test.pth'
 
 
 # Path to specific image

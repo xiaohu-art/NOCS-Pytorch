@@ -57,6 +57,78 @@ class Nocs_head_bins_wt_unshared(nn.Module):
 
         return x,x_feature
     
+class NocsHeadBinsShared(nn.Module):
+    """
+    One head that predicts per-pixel bins for the three NOCS coordinates.
+    The conv blocks (conv1-conv4 + deconv) are shared; only the **very last
+    1×1 projection** is duplicated so each coordinate still has its own logits.
+    This is the usual ‘shared trunk + task-specific classifier’ pattern.
+    """
+
+    def __init__(self, depth, pool_size, image_shape,
+                 num_classes, num_bins):
+        super().__init__()
+        self.pool_size   = pool_size
+        self.image_shape = image_shape
+        self.num_bins    = num_bins
+        self.num_classes = num_classes
+        self.depth       = depth
+
+        self.pad = SamePad2d(kernel_size=3, stride=1)
+
+        # ── shared trunk ──────────────────────────────────────
+        self.conv1 = nn.Conv2d(depth, 256, 3, 1)
+        self.bn1   = nn.BatchNorm2d(256, eps=1e-3)
+        self.conv2 = nn.Conv2d(256, 256, 3, 1)
+        self.bn2   = nn.BatchNorm2d(256, eps=1e-3)
+        self.conv3 = nn.Conv2d(256, 256, 3, 1)
+        self.bn3   = nn.BatchNorm2d(256, eps=1e-3)
+        self.conv4 = nn.Conv2d(256, 256, 3, 1)
+        self.bn4   = nn.BatchNorm2d(256, eps=1e-3)
+        self.deconv = nn.ConvTranspose2d(256, 256, 2, 2)
+
+        # ── *three* task-specific 1×1 heads ───────────────────
+        out_ch = num_bins * num_classes          # per coordinate
+        self.head_x = nn.Conv2d(256, out_ch, 1)  # W= out_ch
+        self.head_y = nn.Conv2d(256, out_ch, 1)
+        self.head_z = nn.Conv2d(256, out_ch, 1)
+
+        self.relu    = nn.ReLU(inplace=True)
+        self.softmax = nn.Softmax(dim=2)         # over the bins
+
+    def _trunk(self, x):
+        """Shared trunk forward pass."""
+        x = self.relu(self.bn1(self.conv1(self.pad(x))))
+        x = self.relu(self.bn2(self.conv2(self.pad(x))))
+        x = self.relu(self.bn3(self.conv3(self.pad(x))))
+        x = self.relu(self.bn4(self.conv4(self.pad(x))))
+        x = self.relu(self.deconv(x))
+        return x                                 # (N,256,H,W)
+
+    def _project_and_reshape(self, t, head):
+        """Apply 1×1 head, then reshape to (N, C, B, H, W)."""
+        t = head(t)                              # (N, C*B, H, W)
+        N, CB, H, W = t.shape
+        t = t.view(N, self.num_classes, self.num_bins, H, W)
+        return self.softmax(t)                  # softmax over bins
+
+    def forward(self, pyramid_feats, rois):
+        """
+        Returns three tensors:
+            bins_x/y/z  : (R, C, B, h, w)
+            feat_trunk  : (R, 256, h, w)   (for potential auxiliary losses)
+        """
+        # ROI-align once ⇒ shared trunk ⇒ split
+        t = pyramid_roi_align([rois] + pyramid_feats,
+                              self.pool_size, self.image_shape)
+        t = self._trunk(t)
+
+        bins_x = self._project_and_reshape(t, self.head_x)
+        bins_y = self._project_and_reshape(t, self.head_y)
+        bins_z = self._project_and_reshape(t, self.head_z)
+        return (bins_x, bins_y, bins_z), t
+
+    
 class CoordBinValues(nn.Module):
     '''
     Module to convert NOCS bins to values in range [0,1]

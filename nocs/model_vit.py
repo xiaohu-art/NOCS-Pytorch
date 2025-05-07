@@ -118,25 +118,60 @@ def crop_and_resize(image,boxes,box_indices,crop_size):
 #  FPN Graph
 ############################################################
 
+class TopDownLayer(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(TopDownLayer, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
+        self.padding2 = utils.SamePad2d(kernel_size=3, stride=1)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1)
+
+    def forward(self, x, y):
+        y = F.interpolate(y, scale_factor=2)
+        x = self.conv1(x)
+        return self.conv2(self.padding2(x+y))
+
 class FPN(nn.Module):
     def __init__(self, backbone, in_channels, out_channels=256, add_p6=True):
         super().__init__()
-        self.backbone = backbone
-        self.proj  = nn.Conv2d(in_channels, out_channels, 1)   # C_in → 256
-        self.add_p6 = add_p6
+        self.backbone   = backbone
+        self.add_p6     = add_p6
+
+        self.lat_convs  = nn.ModuleList(
+            [nn.Conv2d(in_channels, out_channels, 1) for _ in range(4)]
+        )
+        
+        self.smooth_convs = nn.ModuleList(
+            [nn.Conv2d(out_channels, out_channels, 3, padding=1) for _ in range(4)]
+        )
+
         if add_p6:
-            self.p6 = nn.MaxPool2d(1, 2)                       # P5 → P6
+            self.p6 = nn.MaxPool2d(kernel_size=1, stride=2)
 
     def forward(self, x):
-        x = self.backbone.vit(x)[-1]
-        p4 = self.proj(x)                                      # stride 16
-        p3 = F.interpolate(p4, scale_factor=2, mode='nearest') # stride 8
-        p2 = F.interpolate(p3, scale_factor=2, mode='nearest') # stride 4
-        p5 = F.max_pool2d(p4, kernel_size=1, stride=2)         # stride 32
-        outs = [p2, p3, p4, p5]
-        if self.add_p6:
-            outs.append(self.p6(p5))                           # stride 64
-        return outs
+        c2, c3, c4, c5 = self.backbone.vit(x)
+
+        # ---------- lateral ↓256 ----------
+        p5 = self.lat_convs[3](c5)
+        p4 = self.lat_convs[2](c4) + p5
+        p3 = self.lat_convs[1](c3) + p4
+        p2 = self.lat_convs[0](c2) + p3
+
+        # ---------- 3×3 smooth ----------
+        p5 = self.smooth_convs[3](p5)      # stride 16
+        p4 = self.smooth_convs[2](p4)      # stride 16
+        p3 = self.smooth_convs[1](p3)      # stride 16
+        p2 = self.smooth_convs[0](p2)      # stride 16
+
+        p4_out = p4                                           # stride 16
+        p3_out = F.interpolate(p4_out, scale_factor=2, mode='nearest')  # 8
+        p2_out = F.interpolate(p3_out, scale_factor=2, mode='nearest')  # 4
+        p5_out = F.max_pool2d(p4_out, kernel_size=1, stride=2)          # 32
+        outs   = [p2_out, p3_out, p4_out, p5_out]
+
+        if self.add_p6:                                       # 64
+            outs.append(self.p6(p5_out))
+
+        return outs        # list: [P2,P3,P4,P5,(P6)]
 
 ############################################################
 #  Proposal Layer
@@ -1043,11 +1078,11 @@ class ViTBackbone(nn.Module):
         config.ViTBACKBONE = ['vit_base_patch16_384',
                               'vit_base_patch16_siglip_384',]
         self.vit = timm.create_model(
-            model_name=config.ViTBACKBONE[1],
+            model_name=config.ViTBACKBONE[0],
             img_size=config.IMAGE_SHAPE[:2],
             pretrained=True,
-            # pretrained=False, 
-            features_only=True
+            features_only=True,
+            out_indices=(5, 7, 9, 11)
             )
         
     def forward(self, x):
